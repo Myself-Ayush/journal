@@ -1,0 +1,59 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection rules
+    match /users/{userId} {
+      // Allow reading user documents
+      allow read: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow creating/updating user documents
+      allow create, update: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Goals collection rules - simplified for debugging
+    match /goals/{goalId} {
+      // Allow all operations for authenticated users on their own goals
+      allow read, write: if request.auth != null && 
+                         (resource == null || request.auth.uid == resource.data.userId);
+      
+      // Allow creating goals for authenticated users
+      allow create: if request.auth != null && 
+                    request.auth.uid == request.resource.data.userId;
+    }
+
+    // Habits collection rules
+    match /habits/{habitId} {
+      // Allow all operations for authenticated users on their own habits
+      allow read, write: if request.auth != null && 
+                         (resource == null || request.auth.uid == resource.data.userId);
+      
+      // Allow creating habits for authenticated users
+      allow create: if request.auth != null && 
+                    request.auth.uid == request.resource.data.userId;
+    }
+
+    // Progress collection rules
+    match /progress/{progressId} {
+      // Allow all operations for authenticated users on their own progress entries
+      allow read, write: if request.auth != null && 
+                         (resource == null || request.auth.uid == resource.data.userId);
+      
+      // Allow creating progress entries for authenticated users
+      allow create: if request.auth != null && 
+                    request.auth.uid == request.resource.data.userId;
+    }
+
+    // Journals collection rules - NEW for journal functionality
+    match /journals/{journalId} {
+      // Allow all operations for authenticated users on their own journal entries
+      allow read, write: if request.auth != null && 
+                         (resource == null || request.auth.uid == resource.data.userId);
+      
+      // Allow creating journal entries for authenticated users
+      allow create: if request.auth != null && 
+                    request.auth.uid == request.resource.data.userId;
+    }
+  }
+} 
