@@ -44,8 +44,8 @@ A beautiful, feature-rich digital journaling application built with React and Fi
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/mindful-journal.git
-   cd mindful-journal
+   git clone https://github.com/your-username/journal.git
+   cd journal
    ```
 
 2. **Install dependencies**
