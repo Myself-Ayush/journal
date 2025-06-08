@@ -168,6 +168,22 @@ function App() {
     return () => unsubscribe();
   }, []);
 
+  // Load profile data when profile modal opens
+  useEffect(() => {
+    if (showProfile && userProfile) {
+      setProfileData({
+        name: userProfile.name || currentUser?.displayName || '',
+        bio: userProfile.bio || '',
+        location: userProfile.location || '',
+        phone: userProfile.phone || '',
+        avatar: userProfile.avatar || '',
+        status: userProfile.status || 'active',
+        theme: userProfile.theme || 'light',
+        notifications: userProfile.notifications !== undefined ? userProfile.notifications : true
+      });
+    }
+  }, [showProfile, userProfile, currentUser]);
+
   // Close mobile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -809,12 +825,40 @@ ${entryText}
     setProfileError('');
 
     try {
+      console.log('Updating profile with data:', profileData);
+      console.log('Current user:', currentUser?.uid);
+      
+      if (!currentUser?.uid) {
+        throw new Error('No user logged in');
+      }
+
       await updateUserProfile(currentUser.uid, profileData);
       await loadUserProfile(currentUser.uid);
-      setEditingProfile(false);
+      setProfileError('✅ Profile updated successfully!');
+      setTimeout(() => setProfileError(''), 3000);
     } catch (error) {
       console.error('Error updating profile:', error);
-      setProfileError('Failed to update profile. Please try again.');
+      console.error('Error details:', error.message);
+      
+      if (error.code === 'permission-denied') {
+        setProfileError('Permission denied. Please check your account permissions.');
+      } else if (error.code === 'not-found') {
+        setProfileError('Profile not found. Creating new profile...');
+        // Try to create the profile if it doesn't exist
+        try {
+          await updateUserProfile(currentUser.uid, {
+            ...profileData,
+            email: currentUser.email,
+            createdAt: new Date()
+          });
+          setProfileError('✅ Profile created successfully!');
+          setTimeout(() => setProfileError(''), 3000);
+        } catch (createError) {
+          setProfileError('Failed to create profile. Please contact support.');
+        }
+      } else {
+        setProfileError(`Failed to update profile: ${error.message}`);
+      }
     } finally {
       setProfileLoading(false);
     }
@@ -1404,7 +1448,7 @@ ${entryText}
         </div>
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+      <div className="relative max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6 mobile-container">
         {/* Conditional View Rendering */}
         {currentView === 'write' && (
           <Journal 
@@ -2129,9 +2173,9 @@ ${entryText}
         </div>
 
         {/* Recent Entries & Export Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           {/* Recent Entries */}
-          <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
+          <div className="lg:col-span-2 bg-white/80 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-lg border border-white/20">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <span>📚</span>
@@ -2179,7 +2223,7 @@ ${entryText}
                       e.stopPropagation();
                       setCurrentView('library');
                     }}
-                    className="p-4 rounded-xl border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all duration-200 cursor-pointer hover:scale-[1.02] bg-white/50 active:scale-[1.01]"
+                    className="p-3 sm:p-4 rounded-xl border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all duration-200 cursor-pointer hover:scale-[1.02] bg-white/50 active:scale-[1.01] mobile-text-container"
                     role="button"
                     tabIndex={0}
                     onKeyPress={(e) => {
@@ -2189,32 +2233,41 @@ ${entryText}
                       }
                     }}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm font-medium text-gray-900 flex items-center gap-1">
+                    <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+                      <span className="text-xs sm:text-sm font-medium text-gray-900 flex items-center gap-1">
                         <span>📅</span>
-                        {(() => {
-                          let date;
-                          if (entry.timestamp && typeof entry.timestamp === 'object' && entry.timestamp.toDate) {
-                            date = entry.timestamp.toDate();
-                          } else if (entry.timestamp && typeof entry.timestamp === 'object' && entry.timestamp.seconds) {
-                            date = new Date(entry.timestamp.seconds * 1000);
-                          } else if (entry.date) {
-                            date = new Date(entry.date);
-                          } else {
-                            date = new Date();
-                          }
-                          return isNaN(date.getTime()) ? 'Recent Entry' : date.toLocaleDateString();
-                        })()}
+                        <span className="truncate">
+                          {(() => {
+                            let date;
+                            if (entry.timestamp && typeof entry.timestamp === 'object' && entry.timestamp.toDate) {
+                              date = entry.timestamp.toDate();
+                            } else if (entry.timestamp && typeof entry.timestamp === 'object' && entry.timestamp.seconds) {
+                              date = new Date(entry.timestamp.seconds * 1000);
+                            } else if (entry.date) {
+                              date = new Date(entry.date);
+                            } else {
+                              date = new Date();
+                            }
+                            return isNaN(date.getTime()) ? 'Recent Entry' : date.toLocaleDateString();
+                          })()}
+                        </span>
                       </span>
                       {entry.mood && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg">{entry.mood.emoji}</span>
-                          <span className="text-sm text-gray-600">{entry.mood.label}</span>
+                        <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                          <span className="text-base sm:text-lg">{entry.mood.emoji}</span>
+                          <span className="text-xs sm:text-sm text-gray-600 hidden sm:block">{entry.mood.label}</span>
                         </div>
                       )}
                     </div>
-                    <p className="text-gray-600 text-sm line-clamp-2">
-                      {Object.values(entry.entries || {})[0]?.substring(0, 100) || 'No content'}...
+                    <p className="text-gray-600 text-xs sm:text-sm line-clamp-2 leading-relaxed break-words mobile-text-wrap">
+                      {(() => {
+                        const text = Object.values(entry.entries || {})[0] || 'No content';
+                        if (text === 'No content') return text;
+                        
+                        // Use CSS line-clamp for proper truncation instead of manual truncation
+                        // This allows CSS to handle responsive behavior properly
+                        return text;
+                      })()}
                     </p>
                   </div>
                 ))}
@@ -2318,7 +2371,10 @@ ${entryText}
                     Profile Settings
                   </h2>
                   <button
-                    onClick={() => setShowProfile(false)}
+                    onClick={() => {
+                      setShowProfile(false);
+                      setProfileError('');
+                    }}
                     className="text-white hover:text-gray-200 text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors"
                   >
                     ×
@@ -2328,133 +2384,170 @@ ${entryText}
 
               {/* Profile Content */}
               <div className="p-6 space-y-6">
-                {/* User Info Section */}
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <span>📋</span>
-                    User Information
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-xl flex items-center justify-center text-white text-xl font-bold">
-                        {userProfile?.avatar ? (
-                          <img src={userProfile.avatar} alt="Profile" className="w-16 h-16 rounded-xl object-cover" />
-                        ) : (
-                          currentUser?.displayName?.[0]?.toUpperCase() || currentUser?.email?.[0]?.toUpperCase() || '👤'
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-900">
-                          {currentUser?.displayName || userProfile?.name || 'Anonymous User'}
-                        </div>
-                        <div className="text-sm text-gray-600">{currentUser?.email}</div>
-                      </div>
-                    </div>
+                {profileError && (
+                  <div className={`p-3 rounded-lg ${
+                    profileError.includes('✅') 
+                      ? 'bg-green-100 border border-green-400 text-green-700' 
+                      : 'bg-red-100 border border-red-400 text-red-700'
+                  }`}>
+                    {profileError}
                   </div>
-                </div>
+                )}
 
-                {/* Stats Section */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4">
-                  <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <span>📊</span>
-                    Your Journal Stats
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-600">{journalEntries.length}</div>
-                      <div className="text-sm text-gray-600">Total Entries</div>
+                {/* Profile Photo */}
+                <div className="text-center">
+                  <div className="relative inline-block">
+                    <div className="w-24 h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center text-white text-2xl font-bold mx-auto mb-4 relative overflow-hidden">
+                      {userProfile?.avatar ? (
+                        <img src={userProfile.avatar} alt="Profile" className="w-full h-full object-cover" />
+                      ) : (
+                        currentUser?.displayName?.[0]?.toUpperCase() || currentUser?.email?.[0]?.toUpperCase() || '👤'
+                      )}
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-orange-600">{currentStreak}</div>
-                      <div className="text-sm text-gray-600">Current Streak</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <span>⚡</span>
-                    Quick Actions
-                  </h3>
-                  <div className="grid grid-cols-1 gap-3">
                     <button
                       onClick={() => {
-                        setShowProfile(false);
-                        setCurrentView('write');
+                        const input = document.createElement('input');
+                        input.type = 'file';
+                        input.accept = 'image/*';
+                        input.onchange = (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                              setProfileData(prev => ({ ...prev, avatar: e.target.result }));
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        };
+                        input.click();
                       }}
-                      className="flex items-center gap-3 p-3 bg-green-50 hover:bg-green-100 rounded-xl transition-colors text-left"
+                      className="absolute -bottom-2 -right-2 bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full shadow-lg transition-colors"
                     >
-                      <span className="text-xl">✏️</span>
-                      <div>
-                        <div className="font-medium text-gray-900">Write New Entry</div>
-                        <div className="text-sm text-gray-600">Start journaling now</div>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowProfile(false);
-                        setCurrentView('library');
-                      }}
-                      className="flex items-center gap-3 p-3 bg-purple-50 hover:bg-purple-100 rounded-xl transition-colors text-left"
-                    >
-                      <span className="text-xl">📚</span>
-                      <div>
-                        <div className="font-medium text-gray-900">View Library</div>
-                        <div className="text-sm text-gray-600">Browse your entries</div>
-                      </div>
-                    </button>
-                    <button
-                      onClick={() => {
-                        setShowProfile(false);
-                        setCurrentView('analytics');
-                      }}
-                      className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors text-left"
-                    >
-                      <span className="text-xl">📈</span>
-                      <div>
-                        <div className="font-medium text-gray-900">View Analytics</div>
-                        <div className="text-sm text-gray-600">See your insights</div>
-                      </div>
+                      <span className="text-sm">📷</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Data Management */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                    <span>💾</span>
-                    Data Management
-                  </h3>
-                  <div className="grid grid-cols-1 gap-3">
-                    <button
-                      onClick={() => {
-                        exportToJSON();
-                        setShowProfile(false);
-                      }}
-                      className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 rounded-xl transition-colors text-left"
+                {/* Profile Form */}
+                <form onSubmit={handleUpdateProfile} className="space-y-4">
+                  {/* Name */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <span>👤</span> Display Name
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={profileData.name}
+                      onChange={handleProfileChange}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Enter your display name"
+                    />
+                  </div>
+
+                  {/* Email (Read-only with edit button) */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <span>📧</span> Email Address
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        value={currentUser?.email || ''}
+                        disabled
+                        className="flex-1 p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowEmailChange(true)}
+                        className="px-4 py-3 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <span>✨</span> Status
+                    </label>
+                    <select
+                      name="status"
+                      value={profileData.status}
+                      onChange={handleProfileChange}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     >
-                      <span className="text-xl">📂</span>
-                      <div>
-                        <div className="font-medium text-gray-900">Export Data</div>
-                        <div className="text-sm text-gray-600">Download JSON backup</div>
-                      </div>
+                      <option value="active">🟢 Active</option>
+                      <option value="away">🟡 Away</option>
+                      <option value="busy">🔴 Busy</option>
+                      <option value="offline">⚫ Offline</option>
+                    </select>
+                  </div>
+
+                  {/* Bio */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <span>📝</span> Bio
+                    </label>
+                    <textarea
+                      name="bio"
+                      value={profileData.bio}
+                      onChange={handleProfileChange}
+                      rows="3"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none"
+                      placeholder="Tell us about yourself..."
+                    />
+                  </div>
+
+                  {/* Location */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <span>📍</span> Location
+                    </label>
+                    <input
+                      type="text"
+                      name="location"
+                      value={profileData.location}
+                      onChange={handleProfileChange}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Your location"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="submit"
+                      disabled={profileLoading}
+                      className={`flex-1 px-4 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                        profileLoading
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-purple-500 hover:bg-purple-600 text-white'
+                      }`}
+                    >
+                      {profileLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <span>💾</span>
+                          Save Profile
+                        </>
+                      )}
                     </button>
                     <button
-                      onClick={() => {
-                        exportToPDF();
-                        setShowProfile(false);
-                      }}
-                      className="flex items-center gap-3 p-3 bg-red-50 hover:bg-red-100 rounded-xl transition-colors text-left"
+                      type="button"
+                      onClick={() => setShowPasswordChange(true)}
+                      className="px-4 py-3 bg-yellow-500 hover:bg-yellow-600 text-white rounded-lg transition-colors flex items-center gap-2"
                     >
-                      <span className="text-xl">📄</span>
-                      <div>
-                        <div className="font-medium text-gray-900">Print Journal</div>
-                        <div className="text-sm text-gray-600">Printable version</div>
-                      </div>
+                      <span>🔑</span>
+                      Change Password
                     </button>
                   </div>
-                </div>
+                </form>
 
                 {/* Sign Out */}
                 <div className="pt-4 border-t border-gray-200">
@@ -2475,6 +2568,273 @@ ${entryText}
                     <span className="font-medium">Sign Out</span>
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Change Password Modal */}
+        {showPasswordChange && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-yellow-500 to-orange-500 p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <span>🔑</span>
+                    Change Password
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowPasswordChange(false);
+                      setPasswordData({
+                        currentPassword: '',
+                        newPassword: '',
+                        confirmPassword: ''
+                      });
+                      setProfileError('');
+                    }}
+                    className="text-white hover:text-gray-200 text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                {profileError && (
+                  <div className={`mb-4 p-3 rounded-lg ${
+                    profileError.includes('✅') 
+                      ? 'bg-green-100 border border-green-400 text-green-700' 
+                      : 'bg-red-100 border border-red-400 text-red-700'
+                  }`}>
+                    {profileError}
+                  </div>
+                )}
+
+                <form onSubmit={handleChangePassword} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Current Password
+                    </label>
+                    <input
+                      type="password"
+                      name="currentPassword"
+                      value={passwordData.currentPassword}
+                      onChange={handlePasswordChange}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      placeholder="Enter current password"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      New Password
+                    </label>
+                    <input
+                      type="password"
+                      name="newPassword"
+                      value={passwordData.newPassword}
+                      onChange={handlePasswordChange}
+                      required
+                      minLength="6"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      placeholder="Enter new password (min 6 characters)"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Confirm New Password
+                    </label>
+                    <input
+                      type="password"
+                      name="confirmPassword"
+                      value={passwordData.confirmPassword}
+                      onChange={handlePasswordChange}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
+                      placeholder="Confirm new password"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPasswordChange(false);
+                        setPasswordData({
+                          currentPassword: '',
+                          newPassword: '',
+                          confirmPassword: ''
+                        });
+                        setProfileError('');
+                      }}
+                      className="flex-1 px-4 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={profileLoading}
+                      className={`flex-1 px-4 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                        profileLoading
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-yellow-500 hover:bg-yellow-600 text-white'
+                      }`}
+                    >
+                      {profileLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Changing...
+                        </>
+                      ) : (
+                        <>
+                          <span>🔑</span>
+                          Change Password
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Change Email Modal */}
+        {showEmailChange && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-6 text-white">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <span>📧</span>
+                    Change Email
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowEmailChange(false);
+                      setEmailData({
+                        currentPassword: '',
+                        newEmail: '',
+                        confirmEmail: ''
+                      });
+                      setProfileError('');
+                    }}
+                    className="text-white hover:text-gray-200 text-xl font-bold w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+
+              {/* Content */}
+              <div className="p-6">
+                {profileError && (
+                  <div className={`mb-4 p-3 rounded-lg ${
+                    profileError.includes('✅') 
+                      ? 'bg-green-100 border border-green-400 text-green-700' 
+                      : 'bg-red-100 border border-red-400 text-red-700'
+                  }`}>
+                    {profileError}
+                  </div>
+                )}
+
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700">
+                    <span className="font-medium">Current Email:</span> {currentUser?.email}
+                  </p>
+                </div>
+
+                <form onSubmit={handleChangeEmail} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Current Password
+                    </label>
+                    <input
+                      type="password"
+                      name="currentPassword"
+                      value={emailData.currentPassword}
+                      onChange={handleEmailChange}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Enter your current password"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      New Email Address
+                    </label>
+                    <input
+                      type="email"
+                      name="newEmail"
+                      value={emailData.newEmail}
+                      onChange={handleEmailChange}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Enter new email address"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Confirm New Email
+                    </label>
+                    <input
+                      type="email"
+                      name="confirmEmail"
+                      value={emailData.confirmEmail}
+                      onChange={handleEmailChange}
+                      required
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="Confirm new email address"
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEmailChange(false);
+                        setEmailData({
+                          currentPassword: '',
+                          newEmail: '',
+                          confirmEmail: ''
+                        });
+                        setProfileError('');
+                      }}
+                      className="flex-1 px-4 py-3 text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={profileLoading}
+                      className={`flex-1 px-4 py-3 rounded-lg transition-colors flex items-center justify-center gap-2 ${
+                        profileLoading
+                          ? 'bg-gray-400 text-white cursor-not-allowed'
+                          : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                      }`}
+                    >
+                      {profileLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Changing...
+                        </>
+                      ) : (
+                        <>
+                          <span>📧</span>
+                          Change Email
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
               </div>
             </div>
           </div>

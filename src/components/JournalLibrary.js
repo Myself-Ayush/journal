@@ -158,7 +158,12 @@ const JournalLibrary = ({ entries, onDeleteEntry, onUpdateEntry }) => {
     if (!entries || Object.keys(entries).length === 0) return "No content";
     
     const firstEntry = Object.values(entries)[0];
-    return firstEntry.length > 100 ? firstEntry.substring(0, 100) + '...' : firstEntry;
+    if (firstEntry.length <= 120) return firstEntry;
+    
+    // Truncate at word boundary to prevent cutting words in half
+    const truncated = firstEntry.substring(0, 120);
+    const lastSpace = truncated.lastIndexOf(' ');
+    return lastSpace > 80 ? truncated.substring(0, lastSpace) + '...' : truncated + '...';
   };
 
   const getAnsweredQuestions = (entries) => {
@@ -322,7 +327,7 @@ ${entryText}`;
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-4 sm:p-6">
+    <div className="max-w-6xl mx-auto p-3 sm:p-4 md:p-6">
       {/* Header */}
       <div className="mb-6 sm:mb-8">
         <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
@@ -472,17 +477,17 @@ ${entryText}`;
               }`}
             >
               {/* Entry Header */}
-              <div className="p-6 border-b border-gray-100">
+              <div className="p-4 sm:p-6 border-b border-gray-100">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center gap-4 mb-2">
-                      <span className="text-xl">📅</span>
-                      <span className="text-lg font-semibold text-gray-900">
+                    <div className="flex items-center gap-2 sm:gap-4 mb-2">
+                      <span className="text-lg sm:text-xl">📅</span>
+                      <span className="text-base sm:text-lg font-semibold text-gray-900">
                         {formatDate(entry.timestamp || entry.date)}
                       </span>
                     </div>
                     
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
+                    <div className="flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-600 flex-wrap">
                       {entry.mood && (
                         <div className="flex items-center gap-2">
                           <span className="text-lg">{entry.mood.emoji}</span>
@@ -584,15 +589,17 @@ ${entryText}`;
                 {/* Preview */}
                 {expandedEntry !== index && (
                   <div className="mt-3 text-gray-600">
-                    <span className="text-sm text-gray-500 italic">💭 </span>
-                    {getEntryPreview(entry.entries)}
+                    <span className="text-xs sm:text-sm text-gray-500 italic">💭 </span>
+                    <span className="text-xs sm:text-sm leading-relaxed break-words">
+                      {getEntryPreview(entry.entries)}
+                    </span>
                   </div>
                 )}
               </div>
 
               {/* Expanded Content */}
               {expandedEntry === index && (
-                <div className="p-6 space-y-6" onClick={(e) => e.stopPropagation()}>
+                <div className="p-4 sm:p-6 space-y-4 sm:space-y-6" onClick={(e) => e.stopPropagation()}>
                   {/* Edit/Save buttons when editing */}
                   {editingEntry === index && (
                     <div className="flex justify-end gap-3 mb-4 pb-4 border-b border-gray-200">

@@ -329,24 +329,65 @@ export const updateUserProfile = async (userId, profileData) => {
     console.log('Updating user profile for:', userId);
     console.log('Profile data:', profileData);
     
-    // Update Firestore document
-    await updateDoc(doc(db, 'users', userId), {
-      ...profileData,
-      updatedAt: serverTimestamp()
-    });
+    if (!userId) {
+      throw new Error('User ID is required');
+    }
+
+    if (!profileData) {
+      throw new Error('Profile data is required');
+    }
+
+    const userDocRef = doc(db, 'users', userId);
+    
+    // Check if document exists first
+    const userDocSnap = await getDoc(userDocRef);
+    
+    if (userDocSnap.exists()) {
+      // Update existing document
+      await updateDoc(userDocRef, {
+        ...profileData,
+        updatedAt: serverTimestamp()
+      });
+      console.log('User profile updated successfully');
+    } else {
+      // Create new document if it doesn't exist
+      console.log('User document does not exist, creating new one');
+      await setDoc(userDocRef, {
+        ...profileData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      console.log('User profile created successfully');
+    }
     
     // Update Firebase Auth profile if displayName is provided
     if (profileData.name && auth.currentUser) {
-      await updateProfile(auth.currentUser, {
-        displayName: profileData.name,
-        photoURL: profileData.avatar || auth.currentUser.photoURL
-      });
+      try {
+        await updateProfile(auth.currentUser, {
+          displayName: profileData.name,
+          photoURL: profileData.avatar || auth.currentUser.photoURL
+        });
+        console.log('Firebase Auth profile updated successfully');
+      } catch (authError) {
+        console.warn('Failed to update Firebase Auth profile:', authError);
+        // Don't throw here as the main profile update succeeded
+      }
     }
     
-    console.log('User profile updated successfully');
   } catch (error) {
     console.error('Error updating user profile:', error);
-    throw error;
+    console.error('Error code:', error.code);
+    console.error('Error message:', error.message);
+    
+    if (error.code === 'permission-denied') {
+      throw new Error('Permission denied: You do not have permission to update this profile.');
+    } else if (error.code === 'unavailable') {
+      throw new Error('Service temporarily unavailable. Please try again later.');
+    } else if (error.code === 'unauthenticated') {
+      throw new Error('Authentication required. Please sign in again.');
+    } else {
+      throw error;
+    }
   }
 };
 
