@@ -44,7 +44,7 @@ A beautiful, feature-rich digital journaling application built with React and Fi
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/your-username/journal.git
+   git clone https://github.com/myself-ayush/journal.git
    cd journal
    ```
 
