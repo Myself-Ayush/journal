@@ -72,7 +72,16 @@ const JournalLibrary = ({ entries, onDeleteEntry, onUpdateEntry }) => {
     } else {
       date = new Date();
     }
-    return isNaN(date.getTime()) ? 'Recent Entry' : date.toLocaleDateString();
+
+    if (isNaN(date.getTime())) {
+      return 'Recent Entry';
+    }
+
+    // Format date with date first, then month and year
+    const day = date.getDate();
+    const month = date.toLocaleDateString('en-US', { month: 'long' });
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
   };
 
   const getWordCount = (entry) => {
