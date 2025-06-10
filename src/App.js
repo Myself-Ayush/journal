@@ -2247,7 +2247,13 @@ ${entryText}
                             } else {
                               date = new Date();
                             }
-                            return isNaN(date.getTime()) ? 'Recent Entry' : date.toLocaleDateString();
+                            if (isNaN(date.getTime())) {
+                              return 'Recent Entry';
+                            }
+                            const day = date.getDate();
+                            const month = date.toLocaleDateString('en-US', { month: 'long' });
+                            const year = date.getFullYear();
+                            return `${day} ${month} ${year}`;
                           })()}
                         </span>
                       </span>
