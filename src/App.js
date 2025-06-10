@@ -623,8 +623,8 @@ function App() {
     const moodTrends = getMoodTrends();
     const patterns = getWritingPatterns();
     
-    // Mood insights
-    if (moodTrends.moodCounts) {
+    // Mood insights - FIX: Add safety check for empty arrays
+    if (moodTrends.moodCounts && Object.keys(moodTrends.moodCounts).length > 0) {
       const topMood = Object.keys(moodTrends.moodCounts).reduce((a, b) => 
         moodTrends.moodCounts[a] > moodTrends.moodCounts[b] ? a : b
       );
